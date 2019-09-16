@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Pm2Go</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.15.4/dist/bootstrap-table.min.css" />
+</head>
+
+<body>
+    <div class="container">
+        <h1>Pm2Go</h1>
+        <div class="content">
+            <div id="toolbar">
+                <button type="button" class="btn btn-primary" id="addBtn">Add</button>
+                <button type="button" class="btn btn-success refresh" id="refreshBtn">
+                    Refresh
+                </button>
+            </div>
+            <table id="table" data-toggle="table" data-url="/list" data-toolbar="#toolbar" data-toolbar-align="right"
+                data-height="800" data-pagination="true">
+                <thead>
+                    <tr>
+                        <th data-field="pm_id">ID</th>
+                        <th data-field="name">Name</th>
+                        <th data-field="pm2_env.status">Status</th>
+                        <th data-field="pm2_env.pm_exec_path">Executable Path</th>
+                        <th data-field="pm2_env.args">Args</th>
+                        <th data-field="operate" data-formatter="operateFormatter" data-events="operateEvents">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Confirm</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <input type="hidden" id="cmd">
+                <div class="modal-body" id="modalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">No</button>
+                    <button type="button" class="btn btn-primary" id="modalYes">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="addModal" tabindex="-1" role="dialog" aria-labelledby="addModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addModalLabel">Add Process</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="addModalBody">
+                    <form>
+                        <div class="form-group">
+                            <label for="inputName">Name</label>
+                            <input type="text" class="form-control" placeholder="Enter process name" id="inputName">
+                        </div>
+                        <div class="form-group">
+                            <label for="inputPath">Path</label>
+                            <input type="text" class="form-control" placeholder="Enter executable path" id="inputPath">
+                        </div>
+                        <div class="form-group">
+                            <label for="inputArgs">Arguments</label>
+                            <input type="text" class="form-control" placeholder="Enter arguments" id="inputArgs">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">No</button>
+                    <button type="button" class="btn btn-primary" id="addModalYes">Yes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous">
+    </script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous">
+    </script>
+    <script src="https://unpkg.com/bootstrap-table@1.15.4/dist/bootstrap-table.min.js"></script>
+    <script>
+        axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
+        var $table = $("#table");
+        var $refresh = $("#refreshBtn");
+        var $add = $("#addBtn");
+        var $modal = $('#modal')
+
+        function operateFormatter(value, row, index) {
+            return '<button class="btn btn-primary btn-sm start">Start</button> ' +
+                '<button class="btn btn-secondary btn-sm stop">Stop</button> ' +
+                '<button class="btn btn-warning btn-sm restart">Restart</button> ' +
+                '<button class="btn btn-danger btn-sm delete">Delete</button>'
+        }
+
+        window.operateEvents = {
+            'click .start': function (e, value, row, index) {
+                setModalText(row.name, 'Start')
+                $modal.modal('show')
+            },
+            'click .stop': function (e, value, row, index) {
+                setModalText(row.name, 'Stop')
+                $modal.modal('show')
+            },
+            'click .restart': function (e, value, row, index) {
+                setModalText(row.name, 'Restart')
+                $modal.modal('show')
+            },
+            'click .delete': function (e, value, row, index) {
+                setModalText(row.name, 'Delete')
+                $modal.modal('show')
+            },
+        }
+
+        function setModalText(name, status) {
+            $('#modalLabel').text(status + ' confirmation')
+            $('#cmd').val(status.toLowerCase() + ' ' + name)
+            $('#modalBody').html('Do you want to ' + status.toLowerCase() + ' ' + name)
+        }
+
+        function sendCommand(cmd, callback) {
+            params = new URLSearchParams();
+            params.append('p', cmd);
+            axios.post('/send', params)
+                .then(function (response) {
+
+                })
+                .catch(function (error) {
+                    console.log(error)
+                })
+                .then(callback)
+        }
+
+        $(function () {
+            $refresh.click(function () {
+                $table.bootstrapTable("refresh");
+            });
+
+            $("#modalYes").click(function (e) {
+                e.preventDefault()
+                sendCommand($('#cmd').val(), function () {
+                    $table.bootstrapTable("refresh");
+                    $modal.modal('hide')
+                })
+            })
+
+            $add.click(function (e) {
+                e.preventDefault()
+                $('#addModal').modal('show')
+            })
+
+            $('#addModalYes').click(function (e) {
+                e.preventDefault()
+                name = $('#inputName').val()
+                path = $('#inputPath').val()
+                args = $('#inputArgs').val()
+                cwd = path.substring(0, path.lastIndexOf("\\"));
+                cmd = 'start ' + path + ' --name ' + name + ' --cwd ' + cwd + ' -- ' + args
+                sendCommand(cmd, function () {
+                    $table.bootstrapTable("refresh");
+                    $('#addModal').modal('hide')
+                })
+            })
+        });
+    </script>
+</body>
+
+</html>
